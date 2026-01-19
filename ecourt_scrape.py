@@ -56,16 +56,67 @@ def scrape_judicial_data():
                 print(f"[{i+1}/{num_cases}] Case opened. Extracting data...", end="")
                 time.sleep(3)
 
-                # LISTING THE CNR
+                # LISTING THE CNR - FIXED VERSION
                 try:
-                    # Scan the entire page source for the 16-digit MHCC pattern
-                    match = re.search(r"MHCC[A-Z0-9]{12}", driver.page_source)
-                    if match:
-                        cnr_val = match.group(0)
-                        cnr_val = cnr_val.split("(")[0].strip()
-                    else:
+                    # Wait for the case detail section to load
+                    wait.until(lambda d: "Registration Date" in d.page_source)
+                    time.sleep(1)
+
+                    # Try to find CNR in a specific container first (adjust selector as needed)
+                    # Common patterns: look for CNR label or case number field
+                    cnr_val = None
+
+                    # Strategy 1: Look for CNR label and extract adjacent value
+                    try:
+                        cnr_element = driver.find_element(
+                            By.XPATH,
+                            "//td[contains(text(), 'CNR') or contains(text(), 'Case Number')]/following-sibling::td[1]",
+                        )
+                        cnr_text = cnr_element.text.strip()
+                        match = re.search(r"MHCC[A-Z0-9]{12}", cnr_text)
+                        if match:
+                            cnr_val = match.group(0)
+                    except:
+                        pass
+
+                    # Strategy 2: Look in the main case details container only
+                    if not cnr_val:
+                        try:
+                            # Find the case detail container (adjust selector based on actual page structure)
+                            case_detail_container = driver.find_element(
+                                By.XPATH,
+                                "//div[contains(@class, 'case-detail') or contains(@class, 'modal-body') or contains(@id, 'case')]",
+                            )
+                            container_html = case_detail_container.get_attribute(
+                                "innerHTML"
+                            )
+                            match = re.search(r"MHCC[A-Z0-9]{12}", container_html)
+                            if match:
+                                cnr_val = match.group(0)
+                        except:
+                            pass
+
+                    # Strategy 3: Get all visible text elements and find CNR
+                    if not cnr_val:
+                        try:
+                            # Get only currently visible elements
+                            visible_elements = driver.find_elements(
+                                By.XPATH, "//*[contains(text(), 'MHCC')]"
+                            )
+                            for elem in visible_elements:
+                                if elem.is_displayed():
+                                    match = re.search(r"MHCC[A-Z0-9]{12}", elem.text)
+                                    if match:
+                                        cnr_val = match.group(0)
+                                        break
+                        except:
+                            pass
+
+                    # Fallback: Use case index if no CNR found
+                    if not cnr_val:
                         cnr_val = f"CASE_ID_{i+1}"
 
+                    cnr_val = cnr_val.split("(")[0].strip()
                     print(f"Extracted: {cnr_val}", end="\n")
 
                 except Exception as e:
