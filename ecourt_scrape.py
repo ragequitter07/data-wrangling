@@ -210,7 +210,7 @@ def scrape_judicial_data():
         # Save
         if all_hearing_records:
             df = pd.DataFrame(all_hearing_records)
-            filename = "mumbai_court_master_data.csv"
+            filename = "mumbai_court_master_data_rag.csv"
             file_exists = os.path.isfile(filename)
             # Save with 'a' (append) mode
             df.to_csv(filename, mode="a", index=False, header=not file_exists)
